@@ -1,4 +1,8 @@
-function drawScene(/** @type {WebGLRenderingContext} */ gl, programInfo, buffers) {
+
+var cubeRotation = 0.0;
+
+
+function drawScene(/** @type {WebGLRenderingContext} */ gl, programInfo, buffers, deltaTime) {
     clearScene(gl);
 
     // Generate projection matrix
@@ -23,10 +27,20 @@ function drawScene(/** @type {WebGLRenderingContext} */ gl, programInfo, buffers
                     modelViewMatrix,
                     [ 0.0, 0.0, -6.0 ])
 
+                    cubeRotation += deltaTime;
+    
+
+    mat4.rotate(modelViewMatrix,
+                modelViewMatrix,
+                cubeRotation,
+                [0, 0, 1]);
+
+    mat4.rotate(modelViewMatrix, modelViewMatrix, cubeRotation * .7, [0, 1, 0]);
+
     // Tell WebGL how to pull out the positions from the position
     // buffer into the vertexPosition attribute.
     {
-        const numComponents = 2;  // pull out 2 values per iteration
+        const numComponents = 3;  // pull out 2 values per iteration
         const type = gl.FLOAT;    // the data in the buffer is 32bit floats
         const normalize = false;  // don't normalize
         const stride = 0;         // how many bytes to get from one set of values to the next
@@ -41,6 +55,27 @@ function drawScene(/** @type {WebGLRenderingContext} */ gl, programInfo, buffers
             stride,
             offset);
         gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
+    }
+
+    {
+        const numComponents = 4;  
+        const type = gl.FLOAT;    
+        const normalize = false;  
+        const stride = 0;         
+        const offset = 0;         
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.color);
+        gl.vertexAttribPointer(
+            programInfo.attribLocations.vertexColor,
+            numComponents,
+            type,
+            normalize,
+            stride,
+            offset);
+        gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
+    }
+
+    {
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);
     }
 
     gl.useProgram(programInfo.program);
@@ -58,8 +93,9 @@ function drawScene(/** @type {WebGLRenderingContext} */ gl, programInfo, buffers
 
     {
         const offset = 0;
-        const vertexCount = 4;
-        gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
+        const vertexCount = 36;
+        const type = gl.UNSIGNED_SHORT;
+        gl.drawElements(gl.TRIANGLES, vertexCount, type, offset);
     }
 
   }
@@ -74,35 +110,102 @@ function clearScene(gl) {
 }
 
   function initBuffers(gl) {
-
-    // Create a buffer for the square's positions.
   
     const positionBuffer = gl.createBuffer();
   
-    // Select the positionBuffer as the one to apply buffer
-    // operations to from here out.
-  
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
   
-    // Now create an array of positions for the square.
-  
     const positions = [
-      -1.0,  1.0,
-       1.0,  1.0,
-      -1.0, -1.0,
-       1.0, -1.0,
-    ];
-  
-    // Now pass the list of positions into WebGL to build the
-    // shape. We do this by creating a Float32Array from the
-    // JavaScript array, then use it to fill the current buffer.
+        // Front face
+        -1.0, -1.0,  1.0,
+         1.0, -1.0,  1.0,
+         1.0,  1.0,  1.0,
+        -1.0,  1.0,  1.0,
+      
+        // Back face
+        -1.0, -1.0, -1.0,
+        -1.0,  1.0, -1.0,
+         1.0,  1.0, -1.0,
+         1.0, -1.0, -1.0,
+      
+        // Top face
+        -1.0,  1.0, -1.0,
+        -1.0,  1.0,  1.0,
+         1.0,  1.0,  1.0,
+         1.0,  1.0, -1.0,
+      
+        // Bottom face
+        -1.0, -1.0, -1.0,
+         1.0, -1.0, -1.0,
+         1.0, -1.0,  1.0,
+        -1.0, -1.0,  1.0,
+      
+        // Right face
+         1.0, -1.0, -1.0,
+         1.0,  1.0, -1.0,
+         1.0,  1.0,  1.0,
+         1.0, -1.0,  1.0,
+      
+        // Left face
+        -1.0, -1.0, -1.0,
+        -1.0, -1.0,  1.0,
+        -1.0,  1.0,  1.0,
+        -1.0,  1.0, -1.0,
+      ];
   
     gl.bufferData(gl.ARRAY_BUFFER,
                   new Float32Array(positions),
                   gl.STATIC_DRAW);
+        
+
+    const colorBuffer = gl.createBuffer();
   
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+
+    const faceColors = [
+        [1.0,  1.0,  1.0,  1.0],    // Front face: white
+        [1.0,  0.0,  0.0,  1.0],    // Back face: red
+        [0.0,  1.0,  0.0,  1.0],    // Top face: green
+        [0.0,  0.0,  1.0,  1.0],    // Bottom face: blue
+        [1.0,  1.0,  0.0,  1.0],    // Right face: yellow
+        [1.0,  0.0,  1.0,  1.0],    // Left face: purple
+      ];
+    
+    // Convert the array of colors into a table for all the vertices.
+
+    var colors = [];
+
+    for (var j = 0; j < faceColors.length; ++j) {
+        const c = faceColors[j];
+
+        // Repeat each color four times for the four vertices of the face
+        colors = colors.concat(c, c, c, c);
+    }
+
+    gl.bufferData(gl.ARRAY_BUFFER,
+        new Float32Array(colors),
+        gl.STATIC_DRAW);
+
+    const indexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+
+    const indices = [
+        0,  1,  2,      0,  2,  3,    // front
+        4,  5,  6,      4,  6,  7,    // back
+        8,  9,  10,     8,  10, 11,   // top
+        12, 13, 14,     12, 14, 15,   // bottom
+        16, 17, 18,     16, 18, 19,   // right
+        20, 21, 22,     20, 22, 23,   // left
+      ];
+
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+
+    
+
     return {
       position: positionBuffer,
+      color: colorBuffer,
+      indices: indexBuffer
     };
   }
 
@@ -176,19 +279,26 @@ function initShaderProgram(gl, vsSource, fsSource) {
 
     const vsSource = `
     attribute vec4 aVertexPosition;
+    attribute vec4 aVertexColor;
 
     uniform mat4 uModelViewMatrix;
     uniform mat4 uProjectionMatrix;
 
+    varying lowp vec4 vColor;
+
     void main() {
       gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
+      vColor = aVertexColor;
     }
   `;
 
     // Fragment shader program
     const fsSource = `
+
+    varying lowp vec4 vColor;
+
     void main() {
-        gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+        gl_FragColor = vColor;
     }
     `;
 
@@ -201,6 +311,7 @@ function initShaderProgram(gl, vsSource, fsSource) {
         program: shaderProgram,
         attribLocations: {
             vertexPosition: gl.getAttribLocation(shaderProgram, 'aVertexPosition'),
+            vertexColor: gl.getAttribLocation(shaderProgram, 'aVertexColor'),
         },
         uniformLocations: {
             projectionMatrix: gl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
@@ -208,7 +319,19 @@ function initShaderProgram(gl, vsSource, fsSource) {
         },
     };
 
-    drawScene(gl, programInfo, buffer);
+    var then = 0;
+
+    // Draw the scene repeatedly
+    function render(now) {
+        now *= 0.001;  // convert to seconds
+        const deltaTime = now - then;
+        then = now;
+
+        drawScene(gl, programInfo, buffer, deltaTime);
+
+        requestAnimationFrame(render);
+    }
+    requestAnimationFrame(render);
   }
   
   window.onload = main;
