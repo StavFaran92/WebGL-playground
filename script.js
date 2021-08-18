@@ -1,4 +1,8 @@
-function drawScene(/** @type {WebGLRenderingContext} */ gl, programInfo, buffers) {
+
+var squareRotation = 0.0;
+
+
+function drawScene(/** @type {WebGLRenderingContext} */ gl, programInfo, buffers, deltaTime) {
     clearScene(gl);
 
     // Generate projection matrix
@@ -22,6 +26,14 @@ function drawScene(/** @type {WebGLRenderingContext} */ gl, programInfo, buffers
     mat4.translate(modelViewMatrix,
                     modelViewMatrix,
                     [ 0.0, 0.0, -6.0 ])
+
+    squareRotation += deltaTime;
+    
+
+    mat4.rotate(modelViewMatrix,
+                modelViewMatrix,
+                squareRotation,
+                [0, 0, 1]);
 
     // Tell WebGL how to pull out the positions from the position
     // buffer into the vertexPosition attribute.
@@ -239,7 +251,19 @@ function initShaderProgram(gl, vsSource, fsSource) {
         },
     };
 
-    drawScene(gl, programInfo, buffer);
+    var then = 0;
+
+    // Draw the scene repeatedly
+    function render(now) {
+        now *= 0.001;  // convert to seconds
+        const deltaTime = now - then;
+        then = now;
+
+        drawScene(gl, programInfo, buffer, deltaTime);
+
+        requestAnimationFrame(render);
+    }
+    requestAnimationFrame(render);
   }
   
   window.onload = main;
